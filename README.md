@@ -226,11 +226,4 @@ If you find this work helpful, please consider citing:
 ---
 
 ## 🙏 Acknowledgement
-
-We thank the open-source and research community for inspiring progress in:
-- LLM agents
-- experience learning
-- memory-augmented reasoning
-- tool-use benchmarks
-- and reusable skill learning systems
-
+This repository builds upon code from ReMe and AgentEvolver. The baseline implementations are adapted from AMEM, AWM, and Expel. We sincerely thank all contributors for their outstanding work!
