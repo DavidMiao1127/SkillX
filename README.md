@@ -231,7 +231,6 @@ If you find this work helpful, please consider citing:
   title      = {SkillX: Automatically Constructing Skill Knowledge Bases for Agents},
   year       = {2026}
 }
-}
 ```
 
 ---
