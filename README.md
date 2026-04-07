@@ -230,6 +230,9 @@ If you find this work helpful, please consider citing:
                 Shumin Deng},
   title      = {SkillX: Automatically Constructing Skill Knowledge Bases for Agents},
   year       = {2026},
+  eprint     = {2604.04804},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CL},
   url        = {https://arxiv.org/abs/2604.04804}
 }
 ```
