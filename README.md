@@ -229,7 +229,8 @@ If you find this work helpful, please consider citing:
                 Peng Zhang and 
                 Shumin Deng},
   title      = {SkillX: Automatically Constructing Skill Knowledge Bases for Agents},
-  year       = {2026}
+  year       = {2026},
+  url        = {https://arxiv.org/abs/2604.04804}
 }
 ```
 
