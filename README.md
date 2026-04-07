@@ -206,9 +206,6 @@ We will publicly release:
 - the **automatically constructed skill knowledge base**
 - and supporting resources for skill extraction, refinement, and retrieval
 
-Project page:  
-**https://github.com/zjunlp/SkillX**
-
 ---
 
 ## 📚 Citation
