@@ -206,9 +206,6 @@ We will publicly release:
 - the **automatically constructed skill knowledge base**
 - and supporting resources for skill extraction, refinement, and retrieval
 
-Project page:  
-**https://github.com/zjunlp/SkillX**
-
 ---
 
 ## 📚 Citation
@@ -217,9 +214,23 @@ If you find this work helpful, please consider citing:
 
 ```bibtex
 @article{wang2026skillx,
-  title={SkillX: Automatically Constructing Skill Knowledge Bases for Agents},
-  author={Wang, Chenxi and Yu, Zhuoyun and Xie, Xin and Yao, Wuguannan and Fang, Runnan and Qiao, Shuofei and Cao, Kexin and Zheng, Guozhou and Qi, Xiang and Zhang, Peng and Deng, Shumin},
-  year={2026}
+  author     = {Chenxi Wang and 
+                Zhuoyun Yu and 
+                Xin Xie and 
+                Wuguannan Yao and 
+                Runnan Fang and 
+                Shuofei Qiao and 
+                Kexin Cao and 
+                Guozhou Zheng and 
+                Xiang Qi and 
+                Peng Zhang and 
+                Shumin Deng},
+  title      = {SkillX: Automatically Constructing Skill Knowledge Bases for Agents},
+  year       = {2026},
+  eprint     = {2604.04804},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CL},
+  url        = {https://arxiv.org/abs/2604.04804}
 }
 ```
 
