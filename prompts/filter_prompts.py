@@ -103,3 +103,33 @@ TOOL_FILTER_PROMPTS = {
     "bfcl": TOOL_FILTER_PROMPT,
     "tau2bench": TOOL_FILTER_PROMPT,
 }
+
+# Skill selection prompt for LLM self-filter (inference-time)
+SKILL_SELECT_PROMPT = """You are a super-intelligent AI assistant. Your task is to select some skills from a skill library related to the user task and the provided plan.
+
+# Input Description
+1. User task
+2. Plan: A plan that matches the task
+3. Skill Library: A series of skills, each with two key fields: Skill Name and Skill Description
+
+# Guidelines
+1. Review every step in the plan and select the skills whose descriptions best match the objective of each step.
+2. If multiple similar skills could apply (e.g., overlapping functionality or one skill subsumes another), choose the skill that is most relevant to the current task and has the least unnecessary or redundant functionality.
+3. Do not modify or invent any skills.
+4. Return the selected skill names as a Python list. If no relevant skills exist, return an empty list only. The output format is as follow:
+```python
+[skill_name1, skill_name2, ...]
+```
+
+# Input
+User task: {user_task}
+Plan: {plan}
+Skill Library: {skill_library}
+"""
+
+SKILL_SELECT_PROMPTS = {
+    "default": SKILL_SELECT_PROMPT,
+    "appworld": SKILL_SELECT_PROMPT,
+    "bfcl": SKILL_SELECT_PROMPT,
+    "tau2bench": SKILL_SELECT_PROMPT,
+}

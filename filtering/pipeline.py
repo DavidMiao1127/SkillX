@@ -30,6 +30,7 @@ class TwoStageFilterPipeline:
         self,
         llm,
         benchmark: str = "appworld",
+        domain: str = "",
         tool_schemas: Optional[Dict[str, Any]] = None,
         skip_stage1: bool = False,
         skip_stage2: bool = False,
@@ -41,13 +42,15 @@ class TwoStageFilterPipeline:
         Args:
             llm: LLM instance for filtering
             benchmark: Benchmark name
-            tool_schemas: Dictionary of tool schemas for Stage 2
+            domain: Domain name for tool schema registry (airline, retail, telecom, etc.)
+            tool_schemas: Dictionary of tool schemas for Stage 2 (overrides registry)
             skip_stage1: Whether to skip general filter
             skip_stage2: Whether to skip tool schema filter
             verbose: Whether to output verbose logs
         """
         self.llm = llm
         self.benchmark = benchmark
+        self.domain = domain
         self.verbose = verbose
         self.skip_stage1 = skip_stage1
         self.skip_stage2 = skip_stage2
@@ -62,9 +65,15 @@ class TwoStageFilterPipeline:
         self.tool_filter = ToolSchemaFilter(
             llm=llm,
             benchmark=benchmark,
+            domain=domain,
             tool_schemas=tool_schemas,
             verbose=verbose
         )
+
+        # Log schema info
+        if domain and verbose:
+            schema_count = len(self.tool_filter.tool_schemas)
+            logger.info(f"Loaded {schema_count} tool schemas for domain '{domain}'")
 
     def load_tool_schemas(self, schemas: Dict[str, Any]) -> None:
         """Load tool schemas for Stage 2 validation."""
@@ -97,7 +106,7 @@ class TwoStageFilterPipeline:
             tool_schemas: Available tool schemas
 
         Returns:
-            Skill with tool_doc added, or None if invalid
+            Skill with tool_doc added, or None if no schemas found at all
         """
         skill_data = skill.get("skill", skill)
         tools = skill_data.get("tools", [])
@@ -105,13 +114,22 @@ class TwoStageFilterPipeline:
         if not tools:
             return None
 
-        # Get schemas for all tools
+        # Get schemas for available tools, warn about missing ones
         tool_docs = []
+        missing_tools = []
         for tool_name in tools:
-            if tool_name not in tool_schemas:
-                logger.debug(f"No schema found for tool: {tool_name}")
-                return None
-            tool_docs.append(tool_schemas[tool_name])
+            if tool_name in tool_schemas:
+                tool_docs.append(tool_schemas[tool_name])
+            else:
+                missing_tools.append(tool_name)
+
+        if missing_tools:
+            logger.debug(f"Missing schemas for tools: {missing_tools}")
+
+        # Only skip if ALL tools are missing schemas
+        if not tool_docs:
+            logger.debug(f"No schemas found for any tools in skill, skipping")
+            return None
 
         # Add tool documentation to skill
         skill_copy = skill.copy()
@@ -141,29 +159,44 @@ class TwoStageFilterPipeline:
         """
         logger.info(f"Starting two-stage filtering on {len(skills)} skills")
 
-        current_skills = skills
+        # Split by skill_type so atomic skills bypass Stage 1.
+        def _get_skill_type(s: Dict) -> str:
+            t = s.get("skill_type")
+            if not t:
+                inner = s.get("skill")
+                if isinstance(inner, dict):
+                    t = inner.get("skill_type")
+                    if not t and isinstance(inner.get("metadata"), dict):
+                        t = inner["metadata"].get("skill_type")
+            return t or "functional"
 
-        # Stage 1: General Filter
-        if not self.skip_stage1:
+        functional_skills = [s for s in skills if _get_skill_type(s) != "atomic"]
+        atomic_skills = [s for s in skills if _get_skill_type(s) == "atomic"]
+
+        # Stage 1: General Filter (functional only)
+        if not self.skip_stage1 and functional_skills:
             logger.info("Stage 1: Running general quality filter...")
             stage1_results = await self.general_filter.filter_batch(
-                current_skills,
+                functional_skills,
                 batch_size=batch_size,
                 max_concurrent=max_concurrent,
                 show_progress=show_progress,
                 **kwargs
             )
-
-            # Keep only passed skills
-            current_skills = [
+            passed_functional = [
                 s for s in stage1_results
                 if s.get("filter_result", False)
             ]
-            logger.info(
-                f"Stage 1 complete: {len(current_skills)}/{len(skills)} passed"
-            )
         else:
-            logger.info("Stage 1: Skipped")
+            if self.skip_stage1:
+                logger.info("Stage 1: Skipped (skip_stage1=True)")
+            passed_functional = functional_skills
+
+        current_skills = passed_functional + atomic_skills
+        logger.info(
+            f"Stage 1 complete: {len(passed_functional)}/{len(functional_skills)} "
+            f"functional passed; {len(atomic_skills)} atomic skills bypassed Stage 1"
+        )
 
         if not current_skills:
             logger.warning("No skills passed Stage 1")
@@ -219,6 +252,7 @@ async def two_stage_filter(
     llm,
     skills: List[Dict],
     benchmark: str = "appworld",
+    domain: str = "",
     tool_schemas: Optional[Dict[str, Any]] = None,
     **kwargs
 ) -> List[Dict]:
@@ -229,7 +263,8 @@ async def two_stage_filter(
         llm: LLM instance
         skills: List of skill dictionaries
         benchmark: Benchmark name
-        tool_schemas: Tool schemas for validation
+        domain: Domain name for tool schema registry (airline, retail, telecom, etc.)
+        tool_schemas: Tool schemas for validation (overrides registry)
         **kwargs: Additional arguments
 
     Returns:
@@ -238,6 +273,7 @@ async def two_stage_filter(
     pipeline = TwoStageFilterPipeline(
         llm=llm,
         benchmark=benchmark,
+        domain=domain,
         tool_schemas=tool_schemas,
         verbose=True
     )

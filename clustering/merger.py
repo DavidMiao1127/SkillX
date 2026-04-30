@@ -5,7 +5,10 @@ import json
 import logging
 from typing import List, Dict, Optional, Any
 
-from ..prompts.registry import PromptRegistry
+try:
+    from ..prompts.registry import PromptRegistry
+except ImportError:
+    from prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -129,8 +132,9 @@ class SkillMerger:
                 if self.verbose:
                     logger.info("Merge successful")
                 return {
-                    "merge_skills": merged,
-                    "source": skills
+                    "skill": merged,  # Use "skill" for consistency with pipeline expectations
+                    "source": skills,
+                    "merged_from_count": len(skills)
                 }
 
         except Exception as e:

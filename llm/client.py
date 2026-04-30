@@ -7,7 +7,7 @@ import logging
 from typing import Optional, Callable, Any, List, Tuple, Union
 
 from langchain_openai import ChatOpenAI
-from langchain.messages import HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +51,8 @@ class LLM:
             **kwargs: Additional ChatOpenAI parameters
         """
         self.model = model
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
-        self.base_url = base_url or os.getenv("OPENAI_BASE_URL", "")
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY") or ""
+        self.base_url = base_url or os.getenv("OPENAI_BASE_URL") or ""
         self.initial_max_tokens = max_tokens
         self.current_max_tokens = max_tokens
         self.temperature = temperature
@@ -72,6 +72,7 @@ class LLM:
             max_tokens=self.current_max_tokens,
             temperature=self.temperature,
             timeout=self.timeout,
+            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
             **self.kwargs
         )
 
@@ -131,9 +132,15 @@ class LLM:
         retry_count = 0
         converted_messages = self._convert_messages(messages)
 
+        # Small delay to prevent burst traffic
+        await asyncio.sleep(0.3)
+
         while retry_count < self.max_retries:
             try:
-                response = await self.client.ainvoke(converted_messages)
+                response = await self.client.ainvoke(
+                    converted_messages,
+                    extra_body={"chat_template_kwargs": {"enable_thinking": False}}
+                )
                 response_text = response.content
 
                 logger.debug(f"LLM Response (attempt {retry_count + 1})")
@@ -187,14 +194,17 @@ class LLM:
                     await asyncio.sleep(self.retry_delay)
                     continue
 
-                # Handle rate limit errors
+                # Handle rate limit errors (exponential backoff)
                 elif any(keyword in error_message for keyword in [
                     'rate limit',
                     'rate_limit_exceeded',
                     'too many requests',
                     '429'
                 ]):
-                    sleep_time = self.retry_delay * (retry_count + 1)
+                    # Exponential backoff: 3, 6, 12, 24, 48...
+                    sleep_time = self.retry_delay * (2 ** retry_count)
+                    # Cap at 60 seconds max
+                    sleep_time = min(sleep_time, 60)
                     logger.warning(
                         f"Rate limit hit, sleeping for {sleep_time} seconds..."
                     )

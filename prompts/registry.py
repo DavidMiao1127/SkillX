@@ -1,9 +1,9 @@
 """Prompt registry for benchmark-specific prompts."""
 
 from typing import Dict, Optional
-from .plan_prompts import PLAN_EXTRACTION_PROMPTS, PLAN_COMBINE_PROMPTS
+from .plan_prompts import PLAN_EXTRACTION_PROMPTS, PLAN_COMBINE_PROMPTS, PLAN_REWRITE_PROMPTS
 from .skill_prompts import SKILL_EXTRACTION_PROMPTS
-from .filter_prompts import GENERAL_FILTER_PROMPTS, TOOL_FILTER_PROMPTS
+from .filter_prompts import GENERAL_FILTER_PROMPTS, TOOL_FILTER_PROMPTS, SKILL_SELECT_PROMPTS
 from .merge_prompts import SKILL_MERGE_PROMPTS
 
 
@@ -17,6 +17,7 @@ class PromptRegistry:
     _prompts: Dict[str, Dict[str, str]] = {
         "plan_extraction": PLAN_EXTRACTION_PROMPTS,
         "plan_combine": PLAN_COMBINE_PROMPTS,
+        "plan_rewrite": PLAN_REWRITE_PROMPTS,
         "skill_extraction": SKILL_EXTRACTION_PROMPTS,
         "tool_summary": {
             "default": """You are an AI assistant specialized in analyzing agent trajectories.
@@ -40,6 +41,7 @@ Your summary of the environment feedback
         },
         "general_filter": GENERAL_FILTER_PROMPTS,
         "tool_filter": TOOL_FILTER_PROMPTS,
+        "skill_select": SKILL_SELECT_PROMPTS,
         "skill_merge": SKILL_MERGE_PROMPTS,
     }
 

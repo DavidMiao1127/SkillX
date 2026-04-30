@@ -7,7 +7,10 @@ from typing import Dict, Optional, List
 from copy import deepcopy
 from tqdm import tqdm
 
-from ..prompts.registry import PromptRegistry
+try:
+    from ..prompts.registry import PromptRegistry
+except ImportError:
+    from prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 

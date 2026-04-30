@@ -56,7 +56,15 @@ class PlanExtractor(BasePlanExtractor):
         Returns:
             Item with added 'plan' key, or None if extraction failed
         """
-        user_task = item.get("user_task", "")
+        # Support multiple field names for user task
+        user_task = (
+            item.get("user_task") or
+            item.get("task") or
+            item.get("query") or
+            item.get("instruction") or
+            item.get("goal") or
+            ""
+        )
         trajectory = item.get("task_history", item.get("trajectory", []))
 
         messages = [
@@ -79,6 +87,9 @@ class PlanExtractor(BasePlanExtractor):
             if plan:
                 result = item.copy()
                 result["plan"] = plan
+                # Ensure user_task is set (normalize field name)
+                if "user_task" not in result:
+                    result["user_task"] = user_task
                 if self.verbose:
                     logger.info("Plan extraction successful")
                 return result
@@ -136,7 +147,7 @@ class PlanExtractor(BasePlanExtractor):
         # Group by task
         grouped = defaultdict(list)
         for result in results:
-            if result and "plan" in result:
+            if result and "plan" in result and "user_task" in result:
                 grouped[result["user_task"]].append(result)
 
         return dict(grouped)
@@ -259,14 +270,33 @@ class PlanCombiner:
                 elif result:
                     plan_library[result["task"]] = result["plan"]
         else:
-            if self.verbose:
-                logger.info("Combining plans sequentially...")
+            from tqdm import tqdm
 
-            for task, items in grouped_plans.items():
+            # Separate tasks that need LLM combination vs single-plan tasks
+            tasks_to_combine = [(t, i) for t, i in grouped_plans.items() if len(i) > 1]
+            tasks_single = [(t, i) for t, i in grouped_plans.items() if len(i) == 1]
+
+            # Add single-plan tasks directly (no LLM call needed)
+            for task, items in tasks_single:
                 plans = [item.get("plan", item) if isinstance(item, dict) else item
                          for item in items]
+                plan_library[task] = plans[0]
 
-                if len(plans) > 1:
+            # Combine multi-plan tasks with progress bar
+            if tasks_to_combine:
+                if self.verbose:
+                    logger.info(f"Combining {len(tasks_to_combine)} tasks with multiple plans...")
+
+                pbar = tqdm(
+                    total=len(tasks_to_combine),
+                    desc="Combining plans",
+                    unit="task",
+                    ncols=100
+                )
+
+                for task, items in tasks_to_combine:
+                    plans = [item.get("plan", item) if isinstance(item, dict) else item
+                             for item in items]
                     result = await self.combine(
                         user_task=task,
                         plans_list=plans,
@@ -274,11 +304,12 @@ class PlanCombiner:
                     )
                     if result:
                         plan_library[result["task"]] = result["plan"]
-                else:
-                    plan_library[task] = plans[0]
+                    pbar.update(1)
+
+                pbar.close()
 
             if self.verbose:
-                logger.info("Plan combination complete")
+                logger.info(f"Plan combination complete: {len(plan_library)} plans")
 
         return plan_library
 

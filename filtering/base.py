@@ -6,7 +6,10 @@ import asyncio
 import logging
 from tqdm import tqdm
 
-from ..prompts.registry import PromptRegistry
+try:
+    from ..prompts.registry import PromptRegistry
+except ImportError:
+    from prompts.registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -174,25 +177,57 @@ class ToolSchemaFilter(BaseFilter):
     Tool-schema validation filter (Stage 2).
 
     Validates that skill's tool usage matches the tool specifications.
+    Uses the unified ToolSchemaRegistry for schema lookups.
     """
 
     def __init__(
         self,
         llm,
         benchmark: str = "appworld",
+        domain: str = "",
         tool_schemas: Optional[Dict[str, Any]] = None,
         verbose: bool = True
     ):
         super().__init__(llm, benchmark, verbose)
-        self.tool_schemas = tool_schemas or {}
+        self.domain = domain
+        self._custom_schemas = tool_schemas or {}
+
+        # Load schemas from registry if domain is specified
+        if domain:
+            try:
+                try:
+                    from ..config.tool_schemas import ToolSchemaRegistry
+                except ImportError:
+                    from config.tool_schemas import ToolSchemaRegistry
+                self._registry_schemas = ToolSchemaRegistry.get_all(domain)
+            except ImportError:
+                self._registry_schemas = {}
+        else:
+            self._registry_schemas = {}
 
     def load_schemas(self, schemas: Dict[str, Any]) -> None:
-        """Load tool schemas."""
-        self.tool_schemas = schemas
+        """Load custom tool schemas (merges with registry schemas)."""
+        self._custom_schemas = schemas
 
     def get_tool_schema(self, tool_name: str) -> Optional[Dict]:
-        """Get schema for a specific tool."""
-        return self.tool_schemas.get(tool_name)
+        """
+        Get schema for a specific tool.
+
+        Looks up in custom schemas first, then falls back to registry.
+        """
+        # Check custom schemas first
+        if tool_name in self._custom_schemas:
+            return self._custom_schemas[tool_name]
+
+        # Fall back to registry schemas
+        return self._registry_schemas.get(tool_name)
+
+    @property
+    def tool_schemas(self) -> Dict[str, Any]:
+        """Get all available tool schemas (merged)."""
+        merged = dict(self._registry_schemas)
+        merged.update(self._custom_schemas)
+        return merged
 
     def get_prompt(self) -> str:
         """Get tool filter prompt."""

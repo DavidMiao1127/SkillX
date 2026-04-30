@@ -71,18 +71,28 @@ you will finish by returning in this JSON format as follows:
 ```json
 [
     {
-        "option": "modify",
-        "skill": "the modified skill",
-        "modified_from": "spotify get all user playlists" # specify the skill name of existing skills that is modified
+        "option": "add",
+        "skill": {
+            "name": "skill_name",
+            "document": "The skill's functionality, parameters, outputs, and important notes...",
+            "content": "The concrete implementation code...",
+            "tools": ["apis.app.method"]
+        }
     },
     {
-        "option": "add",
-        "skill": "the added skill",
+        "option": "modify",
+        "skill": {
+            "name": "existing_skill_name",
+            "document": "Updated documentation...",
+            "content": "Updated implementation...",
+            "tools": ["apis.app.method"]
+        },
+        "modified_from": "existing_skill_name"
     },
     {
         "option": "keep",
-        "skill_name": "the kept skill name",
-    }, ...
+        "skill_name": "the kept skill name"
+    }
 ]
 ```
 Note that your updated skills may not need to cover all the options. You can only use one type of updates or choose to remain all skills unchanged.
@@ -166,18 +176,28 @@ you will finish by returning in this JSON format as follows:
 ```json
 [
     {
-        "option": "modify",
-        "skill": "the modified skill",
-        "modified_from": "get_flight_status" # specify the skill name of existing skills that is modified
+        "option": "add",
+        "skill": {
+            "name": "the_tool_name",
+            "document": "The tool's functionality, parameters, outputs, and important notes...",
+            "content": "Example usage showing how to use this tool...",
+            "tools": ["the_tool_name", "other_tools_if_any"]
+        }
     },
     {
-        "option": "add",
-        "skill": "the added skill",
+        "option": "modify",
+        "skill": {
+            "name": "existing_tool_name",
+            "document": "Updated documentation...",
+            "content": "Updated examples...",
+            "tools": ["tool1", "tool2"]
+        },
+        "modified_from": "existing_tool_name"
     },
     {
         "option": "keep",
-        "skill_name": "the kept skill name",
-    }, ...
+        "skill_name": "the kept skill name"
+    }
 ]
 ```
 Note that your updated skills may not need to cover all the options. You can only use one type of updates or choose to remain all skills unchanged.

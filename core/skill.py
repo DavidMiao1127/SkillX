@@ -12,6 +12,9 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional, Literal
 from datetime import datetime
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -294,31 +297,51 @@ class SkillLibrary:
         """
         Merge new skills into the library.
 
+        Atomic skills whose focal tool (== skill.name) is already covered by any
+        functional skill (existing or being merged in this batch) are dropped as
+        redundant.
+
         Args:
             skills: List of skills to merge
             epoch: Current extraction epoch
         """
+        functional_tool_names: set = set()
+        for s in self.functional:
+            functional_tool_names.update(s.tools)
+        for s in skills:
+            if s.metadata.skill_type == "functional":
+                functional_tool_names.update(s.tools)
+
+        dropped_atomic: list = []
+
         for skill in skills:
             skill.metadata.extraction_epoch = epoch
             skill.metadata.modified_at = datetime.now().isoformat()
 
             if skill.metadata.skill_type == "functional":
-                # Check for duplicate by name
                 existing = self.get_skill_by_name(skill.name)
                 if existing is None:
                     self.functional.append(skill)
                 else:
-                    # Update existing skill
                     idx = self.functional.index(existing)
                     self.functional[idx] = skill
             else:
-                # Atomic skill
+                if skill.name in functional_tool_names:
+                    dropped_atomic.append(skill.name)
+                    continue
+
                 existing = self.get_skill_by_name(skill.name)
                 if existing is None:
                     self.atomic.append(skill)
                 else:
                     idx = self.atomic.index(existing)
                     self.atomic[idx] = skill
+
+        if dropped_atomic:
+            logger.info(
+                f"Dropped {len(dropped_atomic)} atomic skill(s) already covered "
+                f"by functional skills: {dropped_atomic}"
+            )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert library to dictionary format."""

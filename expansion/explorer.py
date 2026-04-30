@@ -5,10 +5,17 @@ import logging
 from typing import List, Dict, Any, Optional, Set
 
 from .base import BaseExpansionStrategy
-from ..prompts.expansion_prompts import (
-    get_exploration_prompt,
-    get_task_summarize_prompt,
-)
+
+try:
+    from ..prompts.expansion_prompts import (
+        get_exploration_prompt,
+        get_task_summarize_prompt,
+    )
+except ImportError:
+    from prompts.expansion_prompts import (
+        get_exploration_prompt,
+        get_task_summarize_prompt,
+    )
 
 logger = logging.getLogger(__name__)
 

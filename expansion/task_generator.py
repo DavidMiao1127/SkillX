@@ -6,11 +6,18 @@ import uuid
 from typing import List, Dict, Optional, Set
 from datetime import datetime
 
-from ..prompts.expansion_prompts import (
-    TASK_SUMMARIZE_SYSTEM_PROMPT,
-    TASK_SUMMARIZE_USER_PROMPT,
-    _format_trajectory_for_summarize,
-)
+try:
+    from ..prompts.expansion_prompts import (
+        TASK_SUMMARIZE_SYSTEM_PROMPT,
+        TASK_SUMMARIZE_USER_PROMPT,
+        _format_trajectory_for_summarize,
+    )
+except ImportError:
+    from prompts.expansion_prompts import (
+        TASK_SUMMARIZE_SYSTEM_PROMPT,
+        TASK_SUMMARIZE_USER_PROMPT,
+        _format_trajectory_for_summarize,
+    )
 
 logger = logging.getLogger(__name__)
 

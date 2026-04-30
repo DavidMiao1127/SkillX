@@ -17,7 +17,9 @@ class DBSCANClustering:
     def __init__(
         self,
         eps: float = 0.10,  # 1 - cosine_similarity_threshold (0.90)
-        min_samples: int = 1
+        min_samples: int = 1,
+        metric: str = "cosine",
+        embedding_service=None
     ):
         """
         Initialize DBSCAN clustering.
@@ -25,9 +27,13 @@ class DBSCANClustering:
         Args:
             eps: Maximum distance between samples (1 - similarity_threshold)
             min_samples: Minimum samples per cluster
+            metric: Distance metric (default: cosine)
+            embedding_service: Optional EmbeddingService instance
         """
         self.eps = eps
         self.min_samples = min_samples
+        self.metric = metric
+        self.embedding_service = embedding_service
 
     def fit(self, embeddings: np.ndarray) -> List[List[int]]:
         """
@@ -100,3 +106,45 @@ class DBSCANClustering:
             clusters.append(cluster)
 
         return clusters
+
+    async def cluster_async(
+        self,
+        skills: List[Dict]
+    ) -> Dict[int, List[int]]:
+        """
+        Async clustering method for pipeline integration.
+
+        Args:
+            skills: List of skill dictionaries with 'embedding_text' field
+
+        Returns:
+            Dictionary mapping cluster_id to list of skill indices
+        """
+        if not skills:
+            return {}
+
+        # Get or create embedding service
+        if self.embedding_service is None:
+            from .embedding import EmbeddingService
+            self.embedding_service = EmbeddingService()
+
+        # Generate embeddings
+        embeddings = await self.embedding_service.embed_batch(
+            [s.get("embedding_text", "") for s in skills],
+            show_progress=True
+        )
+
+        # Run DBSCAN clustering
+        cluster_indices = self.fit(embeddings)
+
+        # Convert to dict format: {cluster_id: [indices]}
+        result = {}
+        for cluster_id, indices in enumerate(cluster_indices):
+            result[cluster_id] = indices
+
+        logger.info(f"Clustered {len(skills)} skills into {len(result)} groups")
+        return result
+
+
+# Alias for backward compatibility
+DBSCANClusterer = DBSCANClustering
