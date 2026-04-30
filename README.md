@@ -229,6 +229,11 @@ We will publicly release:
 
 ---
 
+## 🙏 Acknowledgement
+We deeply appreciate the invaluable effort contributed by our dedicated team of developers, supportive users, and esteemed industry partners.
+
+- [Ant Digital Technologies, Ant Group](https://intl.antdigital.com/en)
+
 ## 📚 Citation
 
 If you find this work helpful, please consider citing:
