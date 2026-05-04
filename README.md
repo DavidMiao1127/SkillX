@@ -22,7 +22,7 @@
 Instead of relying on trivial generic wrappers, Legal-SkillX distills deep legal deductions, burden of proof shifts, and statutory matching into a standardized Markdown-based Knowledge Base.
 
 ## Key Features
-- **Strict Legal Taxonomy**: Forces the LLM to assign each skill to an authoritative 2-level Chinese legal taxonomy (e.g., `Civil and Commercial Law → Contracts and Quasi-Contracts`, see `./prompts/legal/法律Skill分类体系.md`), preventing fragmented or made-up categories.
+- **Strict Legal Taxonomy**: Forces the LLM to assign each skill to an authoritative 2-level Chinese legal taxonomy (e.g., `Civil and Commercial Law → Contracts and Quasi-Contracts`, see [Catagories](https://github.com/DavidMiao1127/SkillX/blob/main/prompts/legal/法律Skill分类体系.md)), preventing fragmented or made-up categories.
 - **Structured Chunking**: Splits long documents by Markdown headers and paragraphs to preserve context; supports `.md`, `.txt`, `.json`, `.jsonl` and more.
 - **High-Concurrency & Robust Pipeline**: Uses async semaphore to control LLM concurrency, preventing API rate limits and ensuring stable extraction for large corpora.
 - **Automated, Structured Output**: Dumps each extracted skill as a Markdown file with YAML frontmatter, organized as `SkillBank/L1/L2/SkillName/SKILL.md` for easy RAG and agent loading.
