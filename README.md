@@ -13,6 +13,7 @@
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [File Formats & Output](#file-formats--output)
+- [Registry and Merge Operations](#registry-and-merge-operations)
 - [Acknowledgement](#acknowledgement)
 
 ## 📖 Overview
@@ -21,11 +22,11 @@
 Instead of relying on trivial generic wrappers, Legal-SkillX distills deep legal deductions, burden of proof shifts, and statutory matching into a standardized Markdown-based Knowledge Base.
 
 ## 🤖 Key Features
-- **Strict Taxonomy Mapping**: Automatically categorizes extracted skills into a robust 2-level Chinese Legal Taxonomy (e.g., `民法商法 -> 合同与准合同`).
-- **Anti-Fragmentation & Deep Synthesis**: Forces the LLM to merge related legal concepts into unified, high-level deductive workflows instead of mechanically splitting texts.
-- **Structural Chunking**: Intelligently chunks large documents using Markdown headers to preserve contextual boundaries.
-- **High-Concurrency Pipeline**: Asynchronous batch processing with semaphore rate-limiting for rapid corpus analysis.
-- **Real-time Persistence**: Dumps skills instantly to a hierarchical folder structure (`SkillBank/Level1/Level2/SkillName/SKILL.md`) upon chunk completion.
+- **Strict Legal Taxonomy**: Forces the LLM to assign each skill to an authoritative 2-level Chinese legal taxonomy (e.g., `Civil and Commercial Law → Contracts and Quasi-Contracts`, see `./prompts/legal/法律Skill分类体系.md`), preventing fragmented or made-up categories.
+- **Structured Chunking**: Splits long documents by Markdown headers and paragraphs to preserve context; supports `.md`, `.txt`, `.json`, `.jsonl` and more.
+- **High-Concurrency & Robust Pipeline**: Uses async semaphore to control LLM concurrency, preventing API rate limits and ensuring stable extraction for large corpora.
+- **Automated, Structured Output**: Dumps each extracted skill as a Markdown file with YAML frontmatter, organized as `SkillBank/L1/L2/SkillName/SKILL.md` for easy RAG and agent loading.
+- **Clustering & Merging**: Supports DBSCAN-based clustering and LLM-powered merging of similar skills within each category for better knowledge management.
 
 ## 🔧 Installation
 ```bash
@@ -33,30 +34,64 @@ pip install -r requirements.txt
 pip install langchain-openai PyYAML
 ```
 
-## 🏃 Quick Start
-Use the `batch_legal_extraction.py` script to process a corpus of legal texts. The pipeline supports `.md`, `.txt`, `.json`, and `.jsonl`.
+**Configuration:**
+You must set your own OpenAI-compatible API endpoint and key before running extraction or merging. For example:
 
-```bash
-python batch_legal_extraction.py     --folder "/path/to/your/legal_books_or_cases"     --output "./SkillBank"
+```sh
+export OPENAI_API_BASE="https://your-openai-compatible-endpoint"
+export OPENAI_API_KEY="your-api-key"
+# (Optional) export OPENAI_MODEL="qwen3-32b"
 ```
 
-**Runtime Features:**
-- The script will automatically discover valid documents.
-- Structurally chunk them avoiding context loss.
-- Extract skills concurrently using the configured LLM API.
-- Safely save them directly into the `--output` directory tree.
+## 🏃 Quick Start
+Use the `batch_legal_extraction.py` script to process your legal corpus. Supports `.md`, `.txt`, `.json`, `.jsonl` and more.
 
-## 📂 Output Architecture
-Extracted skills are stored in an organized Markdown format containing a YAML frontmatter for seamless Agent integrations:
+```bash
+# Make sure you have set OPENAI_API_BASE and OPENAI_API_KEY as above!
+python3 batch_legal_extraction.py \
+    --folder "../books" \
+    --output "./LegalSkill"
+
+# Or use the wrapper shell script
+sh extract.sh ../books ./SkillBank
+```
+
+**The script will automatically:**
+1. Scan the folder and read all supported files.
+2. Chunk text contextually by structure.
+3. Extract professional legal skills concurrently via LLM.
+4. Filter out trivial content and persist non-trivial skills to the output directory tree.
+
+## 📂 Output Format & Storage
+Each extracted skill is standardized as a Markdown file with YAML frontmatter, for easy RAG and agent integration:
 
 ```
 SkillBank/
-└── 民法商法/
-    └── 合同与准合同/
-        └── 合同编调整范围的识别与适用边界判断/
+└── Civil and Commercial Law/
+    └── Contracts and Quasi-Contracts/
+        └── Determining Unilateral Termination Rights in Contract Performance/
             └── SKILL.md
 ```
-Inside `SKILL.md`, you will find: `Objectives & Background`, `Workflow Steps` (decision trees and reasoning), `Legal Basis`, and practical `Examples`.
+Each `SKILL.md` contains: `Objectives & Background`, `Workflow Steps` (reasoning/execution flow), `Legal Basis` (real legal articles), and `Example` (realistic case).
+
+## 🗂️ Skill Clustering & Merging
+After extraction, you can cluster and merge similar skills for better management:
+
+```bash
+# Make sure you have set OPENAI_API_BASE and OPENAI_API_KEY as above!
+python3 -m legal.merger \
+    --base ./LegalSkill \
+    --embedding-base YOUR_EMBEDDING_BASE \
+    --embedding-model Qwen3-Embedding-8B
+```
+
+### Clustering & Merge Workflow
+1. Rebuild registry from all current `SKILL.md` files.
+2. Group by **L2 category** (e.g., `Civil and Commercial Law → Contracts and Quasi-Contracts`).
+3. Within each L2, use embedding + **DBSCAN** to cluster similar skills.
+4. For each cluster, create an **L3 directory** (`Cluster_001`, `Cluster_002`, ...), and mount all cluster skills under that L3.
+5. If a cluster has more than one skill, call the LLM to merge them, and write the merged `SKILL.md` into the same L3 directory.
+6. Rebuild the registry to index the new structure.
 
 ## 🙏 Acknowledgement
 This adaptation is built on top of **SkillX** (by zjunlp). We sincerely thank the original authors for their pioneering framework in Agent experience learning.
