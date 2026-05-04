@@ -12,8 +12,8 @@
 - [Key Features](#key-features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [File Formats & Output](#file-formats--output)
-- [Registry and Merge Operations](#registry-and-merge-operations)
+- [Output Format & Storage](#output-format--storage)
+- [Skill Clustering & Merging](#skill-clustering--merging)
 - [Acknowledgement](#acknowledgement)
 
 ## Overview
@@ -62,7 +62,7 @@ sh extract.sh ../books ./SkillBank
 3. Extract professional legal skills concurrently via LLM.
 4. Filter out trivial content and persist non-trivial skills to the output directory tree.
 
-## 📂 Output Format & Storage
+## Output Format & Storage
 Each extracted skill is standardized as a Markdown file with YAML frontmatter, for easy RAG and agent integration:
 
 ```
