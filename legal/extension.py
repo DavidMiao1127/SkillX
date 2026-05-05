@@ -1,12 +1,9 @@
 import json
 import logging
-import os
 import re
+import os
 import sys
-from difflib import SequenceMatcher
-from typing import Any, Dict, List, Optional, Tuple
-
-from .registry import LegalSkillRegistry
+from typing import Dict, List, Optional
 
 try:
     from SkillX.extraction.base import BaseSkillExtractor
@@ -97,158 +94,103 @@ def sanitize_category(category_str: str) -> str:
     return "其他 -> 其他"
 
 
-def _normalize_name(name: str) -> str:
-    s = (name or "").strip().lower()
-    s = re.sub(r"[\s_\-–—:：,，.。()（）\[\]{}!！?？/\\]+", "", s)
-    return s
-
-
-def _split_category(category: str) -> Tuple[str, str]:
-    parts = [p.strip() for p in (category or "").split("->") if p.strip()]
-    if len(parts) >= 2:
-        return parts[0], parts[1]
-    if len(parts) == 1:
-        return parts[0], "其他"
-    return "其他", "其他"
-
-
-def _jaccard_chars(a: str, b: str) -> float:
-    sa, sb = set(a), set(b)
-    if not sa and not sb:
-        return 1.0
-    if not sa or not sb:
-        return 0.0
-    return len(sa & sb) / max(1, len(sa | sb))
-
-
-def _merge_unique_list(old_items: Any, new_items: Any) -> List[str]:
-    merged: List[str] = []
-    for source in [old_items, new_items]:
-        if not isinstance(source, list):
-            continue
-        for item in source:
-            text = str(item).strip()
-            if text and text not in merged:
-                merged.append(text)
-    return merged
-
-
-def _merge_text_block(old_text: str, new_text: str) -> str:
-    old_text = (old_text or "").strip()
-    new_text = (new_text or "").strip()
-    if not old_text:
-        return new_text
-    if not new_text:
-        return old_text
-    if new_text in old_text:
-        return old_text
-    if old_text in new_text:
-        return new_text
-    return f"{old_text}\n\n---\n\n### 增量更新\n{new_text}"
-
-
-def _parse_existing_skill_markdown(file_path: str) -> Dict[str, Any]:
+def dump_skills_to_markdown(skills_json: List[Dict], base_path: str = "./SkillBank") -> str:
+    import os
     import yaml
 
-    result: Dict[str, Any] = {
-        "frontmatter": {},
-        "objectives_and_background": "",
-        "workflow_steps": "",
-        "legal_basis": [],
-        "example": "",
-        "tools": [],
-    }
+    for skill in skills_json:
+        fm = skill.get("yaml_frontmatter", {})
+        name = fm.get("name", "Unnamed_Skill").replace(" ", "_").replace("/", "_")
+        category = sanitize_category(fm.get("category", "其他 -> 其他"))
+        fm["category"] = category
 
-    if not os.path.exists(file_path):
-        return result
+        cat_path = category.replace(" -> ", "/")
+        skill_dir = os.path.join(base_path, cat_path, name)
+        os.makedirs(skill_dir, exist_ok=True)
+        file_path = os.path.join(skill_dir, "SKILL.md")
 
-    with open(file_path, "r", encoding="utf-8") as f:
-        content = f.read()
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write("---\n")
+            yaml.dump(fm, f, allow_unicode=True, sort_keys=False)
+            f.write("---\n\n")
 
-    body = content
-    if content.startswith("---"):
-        end_idx = content.find("---", 3)
-        if end_idx != -1:
-            fm_text = content[3:end_idx].strip()
+            f.write("## 1. Objectives & Background\n")
+            f.write(str(skill.get("objectives_and_background", "")).replace("\\n", "\n") + "\n\n")
+
+            f.write("## 2. Workflow Steps\n")
+            f.write(str(skill.get("workflow_steps", "")).replace("\\n", "\n") + "\n\n")
+
+            f.write("## 3. Legal Basis\n")
+            for basis in skill.get("legal_basis", []):
+                f.write(f"- {basis}\n")
+            f.write("\n")
+
+            f.write("## 4. Example\n")
+            f.write(str(skill.get("example", "")).replace("\\n", "\n") + "\n\n")
+
+            if skill.get("tools"):
+                f.write("## 5. Tools\n")
+                for tool in skill.get("tools", []):
+                    f.write(f"- {tool}\n")
+                f.write("\n")
+
+    return f"Successfully dumped {len(skills_json)} skills into {base_path}"
+
+
+class LegalTextSkillExtractor(BaseSkillExtractor):
+    def __init__(self, llm, max_retries: int = 3, verbose: bool = True):
+        super().__init__(llm, "legal_domain", verbose=verbose)
+        self.max_retries = max_retries
+
+    def get_skill_type(self) -> str:
+        return "legal_functional"
+
+    def get_prompt(self) -> str:
+        return LEGAL_SKILL_PROMPT
+
+    def _extract_skills_from_response(self, text: str) -> Optional[List[Dict]]:
+        match = re.search(r"```json(.*?)```", text, flags=re.S)
+        if match:
             try:
-                result["frontmatter"] = yaml.safe_load(fm_text) or {}
+                return json.loads(match.group(1).strip())
             except Exception:
-                result["frontmatter"] = {}
-            body = content[end_idx + 3 :]
+                pass
 
-    sec_pattern = re.compile(
-        r"^##\s*\d+\.\s*(Objectives\s*&\s*Background|Workflow\s*Steps|Legal\s*Basis|Example|Tools)\s*$",
-        flags=re.M,
-    )
-    matches = list(sec_pattern.finditer(body))
-    sections: Dict[str, str] = {}
-    for idx, m in enumerate(matches):
-        name = m.group(1).strip().lower()
-        start = m.end()
-        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(body)
-        sections[name] = body[start:end].strip()
-
-    result["objectives_and_background"] = sections.get("objectives & background", "")
-    result["workflow_steps"] = sections.get("workflow steps", "")
-    result["example"] = sections.get("example", "")
-
-    legal_basis_block = sections.get("legal basis", "")
-    if legal_basis_block:
-        result["legal_basis"] = [
-            line.lstrip("- ").strip()
-            for line in legal_basis_block.splitlines()
-            if line.strip().startswith("-")
-        ]
-
-    tools_block = sections.get("tools", "")
-    if tools_block:
-        result["tools"] = [
-            line.lstrip("- ").strip()
-            for line in tools_block.splitlines()
-            if line.strip().startswith("-")
-        ]
-
-    return result
-
-
-def _find_similar_existing_skill(skill: Dict[str, Any], registry: Dict[str, Any], threshold: float = 0.82) -> Optional[Dict[str, Any]]:
-    fm = skill.get("yaml_frontmatter", {})
-    new_name = str(fm.get("name", "")).strip()
-    if not new_name:
+        match = re.search(r"\[\s*\{.*?\}\s*\]", text, flags=re.S)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except Exception:
+                pass
         return None
 
-    new_norm = _normalize_name(new_name)
-    if not new_norm:
-        return None
+    async def extract(self, item: Dict, **kwargs) -> Optional[Dict]:
+        doc_text = item.get("content", "")
+        skill_library = item.get("skill_library", [])
 
-    new_cat = sanitize_category(str(fm.get("category", "其他 -> 其他")))
-    new_l1, _ = _split_category(new_cat)
-    new_tags = {str(t).strip().lower() for t in fm.get("tags", []) if str(t).strip()}
+        messages = [
+            ("system", self.get_prompt()),
+            (
+                "human",
+                f"# Document Text:\\n{doc_text}\\n\\n# Existing Skills:\\n{skill_library}\\n\\n"
+                "Extract highly professional and specific legal skills."
+            ),
+        ]
 
-    best_meta: Optional[Dict[str, Any]] = None
-    best_score = 0.0
+        retry = 0
+        plan_step_metadata = {}
+        while retry < self.max_retries:
+            try:
+                response = await self.llm.ainvoke(input=messages, **kwargs)
+                response_text = response.content if hasattr(response, "content") else str(response)
+                skills = self._extract_skills_from_response(response_text)
+                if skills:
+                    plan_step_metadata["doc_extraction"] = skills
+                    break
+            except Exception as e:
+                retry += 1
+                logger.error(f"Error extracting legal skill: {e}")
 
-    for _, meta in registry.items():
-        old_name = str(meta.get("name", "")).strip()
-        old_norm = _normalize_name(old_name)
-        if not old_norm:
-            continue
-
-        old_cat = sanitize_category(str(meta.get("category", "其他 -> 其他")))
-        old_l1, _ = _split_category(old_cat)
-        if old_l1 != new_l1:
-            continue
-
-        name_ratio = SequenceMatcher(None, new_norm, old_norm).ratio()
-        char_jaccard = _jaccard_chars(new_norm, old_norm)
-
-        if new_norm in old_norm or old_norm in new_norm:
-            name_ratio = max(name_ratio, 0.93)
-
-        old_tags = {str(t).strip().lower() for t in meta.get("tags", []) if str(t).strip()}
-        tag_score = (len(new_tags & old_tags) / len(new_tags | old_tags)) if (new_tags or old_tags) else 0.0
-
-        cat_bonus = 0.05 if old_cat == new_cat else 0.0
-        score = 0.65 * name_ratio + 0.25 * char_jaccard + 0.10 * tag_score + cat_bonus
-
-        if score > best_sc
+        result = item.copy()
+        result["plan_step_metadata"] = plan_step_metadata
+        return result
